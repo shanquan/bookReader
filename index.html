@@ -1,0 +1,133 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />  
+<title>Series</title>  
+<meta name="description" content="English Readings"> 
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">
+<link rel="stylesheet" type="text/css" href="assets/w3.css"/>
+<script type="application/javascript" src="assets/w3.js"></script>
+<!-- cordova script (this will be a 404 during development) -->
+<script src="cordova.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+<script>
+  /**
+   * 基于W3.css的动态加载SPA
+   * @author ShanQuan
+   * @date 2020-09-26
+   * @notice:
+   * 动态加载的页面，均需要在a.url显示或变化后执行setAlinks(),修改默认的链接点击事件
+   * 
+  */
+  const APP=document.getElementById("app"),
+        PREFIX=document.location.protocol+"//"+window.location.host+"/",
+        // BASEURL="data/",
+        BASEURL="https://share-1252923336.cos.ap-guangzhou.myqcloud.com/",
+        DIR="templates",
+        RESCONFIG={
+          "main":["templates/main.js"],
+          "list":["templates/list.js"],
+          "book":["assets/common.css","assets/common.js","assets/soundBuffer.js","assets/swipe.js","templates/book.js"],
+          "BookMark":["assets/common.css","assets/common.js","assets/soundBuffer.js","assets/rectDraw.js","assets/swipe.js","templates/BookMark.js"]
+        };
+  if(location.hash){
+    var path = getPath(location.hash);
+    loadHTML(path,getResArr(path));
+  }else{
+    loadHTML("main",getResArr("main"));
+  }
+  // load w3 html
+  function loadHTML(path,resArr){
+    if(!path) return false;
+    if(!resArr) resArr=[];
+    APP.innerHTML = "";
+    APP.setAttribute("w3-include-HTML",DIR+"/"+path+".html");
+    w3.includeHTML(function(){
+      loadRes(resArr);
+      setAlinks();
+    });
+  }
+  // change a-links default click event
+  function setAlinks(){
+    var aList = document.querySelectorAll('a');
+    aList.forEach(function(el){
+      el.addEventListener('click',function(e){
+        var path = getPath(this.href);
+        loadHTML(path,getResArr(path));
+        location.hash=getHash(this.href);
+        e.preventDefault();
+      },true);
+    })
+  }
+  // get location querys
+  function getQuerys(){
+    var querys = {};
+    var search;
+    if(location.search){
+      search = location.search.substring(1).split('&');
+    }else if(location.hash){
+      var idx = location.hash.indexOf("?");
+      search = location.hash.substring(idx+1).split('&');
+    }
+    search.forEach(function(el){
+      if(el.length){
+        var kv = el.split('=');
+        querys[kv[0]] = kv[1];
+      }
+    })
+    return querys;
+  }
+  // load and run HTML scripts
+  function loadRes(resArr){
+    if(resArr.length){
+      resArr.forEach(function(el){
+        var idx = el.lastIndexOf(".");
+        var type = el.substring(idx+1);
+        if(type == "js"){
+          var oScript= document.createElement("script"); 
+          oScript.type = "text/javascript"; 
+          oScript.src=el;
+          // run strictly one by one
+          oScript.defer="defer";
+          APP.appendChild( oScript);
+        }else if(type == "css"){
+          var linkTag = document.createElement('link');
+          linkTag.setAttribute('id','dynamic-style');
+          linkTag.setAttribute('rel','stylesheet');
+          linkTag.setAttribute('type','text/css');
+          linkTag.href = el;
+          APP.prepend(linkTag);
+        }
+      })
+    }
+  }
+  // get path from url string
+  function getPath(str){
+    if(str.substring(0,PREFIX.length)==PREFIX){
+      var idx = str.indexOf("?");
+      return idx==-1?str.substring(PREFIX.length):str.substring(PREFIX.length,idx);
+    }else if(str[0]=="#"){
+      return str.substring(1,str.indexOf("?"))
+    }
+    return ""
+  }
+  // get path from url hash
+  function getHash(str){
+    if(str.substring(0,PREFIX.length)==PREFIX){
+      return str.substring(PREFIX.length)
+    }
+    return ""
+  }
+  // get JS scripts and CSS links according to path
+  function getResArr(path){
+    try{
+      return RESCONFIG[path];
+    }catch(e){
+      return undefined
+    }
+  }
+</script>
+</html>

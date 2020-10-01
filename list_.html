@@ -1,0 +1,125 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>List</title>  
+<meta name="description" content="English book list"> 
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">
+<link rel="stylesheet" type="text/css" href="assets/w3.css"/>
+<script type="application/javascript" src="assets/w3.js"></script>
+<script src="cordova.js"></script>
+<style>
+  body{padding:10px}
+  h3{text-align: center;}
+  #list{margin-top:20px}
+  #list .title{height:30px;line-height: 30px; white-space: nowrap;text-overflow: ellipsis;font-size:12px;padding-left:2px}
+  .clear{clear:both}
+  a{text-decoration: none;}
+  .w3-third{padding:8px}
+  svg{width:32px;height:32px;position: fixed;left:10px;top:10px;}
+  #mode{position: fixed;right:10px;top:10px}
+  img{width:100%;height:120px}
+  .hide{display:none}
+  .w3-col{margin-bottom:10px}
+</style>
+</head>
+<body>
+  <h3 id="title">{{title}}</h3>
+  <svg class="icon goBack">
+    <use xlink:href="#system-back"></use>
+  </svg>
+  <button id="mode" class="w3-btn w3-white w3-border w3-border-blue w3-round-xlarge">阅读模式</button>
+  <div id="list" class="w3-row-padding">
+    <div class="w3-col s4 m2" w3-repeat="books">
+      <div class="w3-card-2">
+        <a href="{{url}}">
+          <img src="{{cover||'assets/default.jpg'}}">
+          <div class="title">
+            {{title}}
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="clear"></div>
+  <script>
+    (function(){
+      var querys = {};
+      var books=[];
+      var prefix=8; // name前面过滤的字符数
+      var mode = 0; // 0: 阅读模式，1: 标记模式
+      if(location.search){
+        var search = location.search.substring(1).split('&');
+        search.forEach(function(el){
+          if(el.length){
+            var kv = el.split('=');
+            querys[kv[0]] = kv[1];
+          }
+        })
+      }
+      if(querys.series){
+        switch(querys.series){
+          case "ort": prefix=8;break;
+          case "goodEnglish": prefix=6;break;
+        }
+        w3.displayObject("title",{title:querys.series+" "+querys.name})
+        w3.getHttpObject("data/"+querys.series+"/"+querys.name+".json",function(obj){
+          books = obj.books;
+          w3.displayObject('list',{"books":books.map(function(el){
+            el.url = "book_.html?series="+querys.series+"&name="+el.name;
+            el.title = el.name.substring(prefix);
+            return el
+          })});
+        })
+      }else{
+        alert("缺少参数！")
+      }
+      document.querySelector("svg.goBack").addEventListener('click',function(){
+        if(window.cordova){
+          location.href = "file:///android_asset/www/index.html";
+        }else{
+          location.href = document.location.protocol+"//"+window.location.host;
+        }
+      },false);
+      document.getElementById('mode').addEventListener('click',function(){
+        var t =  this.innerText;
+        var pathname;
+        if(mode == 0){
+          this.innerText = "标记模式";
+          mode = 1;
+          pathname = "BookMark_.html"; 
+        }else{
+          this.innerText = "阅读模式";
+          mode = 0;
+          pathname = "book_.html";
+        }
+        w3.displayObject('list',{"books":books.map(function(el){
+            el.url = pathname+"?series="+querys.series+"&name="+el.name;
+            el.title = el.name.substring(prefix);
+            return el
+          })});
+      },false);
+    }())
+  </script>
+  <svg class="hide">
+    <style>
+      .ionicon {
+        fill: currentColor;
+        stroke: currentColor;
+      }
+      .ionicon-fill-none {
+        fill: none;
+      }
+      .ionicon-stroke-width {
+        stroke-width: 32px;
+      }
+      </style>
+    <defs>
+      <symbol id="system-back" class="ionicon" viewBox="0 0 512 512">
+        <path class="st0" d="M416,192H55l66.7-80H80L0,208l80,96h41.7L55,224h360.5h0.5c35.3,0,64,28.7,64,64s-28.7,64-64,64H224v32h192
+c53,0,96-43,96-96S469,192,416,192z"/>
+    </symbol>
+    </defs>
+  </svg>
+</body>
+</html>

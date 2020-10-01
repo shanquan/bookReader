@@ -1,0 +1,50 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />  
+<title>Series</title>  
+<meta name="description" content="English Readings"> 
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">
+<link rel="stylesheet" type="text/css" href="assets/w3.css"/>
+<style>
+  body{padding:10px;}
+  table{width:90%;min-width:360px;margin:10px auto;border-collapse: collapse;}
+  .tborder th{border:1px solid #ccc;padding:5px;}
+  .tborder td{border:1px solid #ccc;padding: 5px;text-align: center;line-height: 30px;}
+  td a{width:100%;display: inline-block;text-decoration: none;}
+</style>
+<script type="application/javascript" src="assets/w3.js"></script>
+<!-- cordova script (this will be a 404 during development) -->
+<script src="cordova.js"></script>
+</head>
+<body>
+  <div id="main">
+    <table class="tborder" w3-repeat="series">
+      <tbody>
+        <tr><th colspan="{{ll}}">{{title}}</th></tr>
+        <tr id="{{name}}"></tr>
+      </tbody>
+    </table>
+  </div>
+  <script>
+    const BASEURL="data/";
+    //const BASEURL="https://share-1252923336.cos.ap-guangzhou.myqcloud.com/";
+    w3.getHttpObject(BASEURL+"json/series.json",function(obj){
+      try{
+        w3.displayObject('main',{"series":obj.map(function(el){
+          el.ll = el.list.length;
+          return el;
+        })});
+        obj.forEach(function(el){
+          var tr = document.getElementById(el.name);
+          tr.innerHTML = "<td w3-repeat='list'><a href='list_.html?series="+el.name+"&name={{name}}'>{{name}}</a></td>"
+          w3.displayObject(el.name,{"list":el.list});
+        })
+        setAlinks();
+      }catch(e){
+        console.log(e)
+      }
+    })
+  </script>
+</body>
+</html>

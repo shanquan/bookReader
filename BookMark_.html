@@ -1,0 +1,372 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />  
+<title>book</title>  
+<meta name="description" content="english book">
+<meta name="keywords" content="album,book">  
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">  
+<meta name="app-mobile-web-app-capable" content="yes"> 
+<meta name="refdoc" content="https://blog.csdn.net/qq_29132907/article/details/74529497">
+<link rel="stylesheet" type="text/css" href="assets/common.css"/>
+<script type="application/javascript" src="assets/w3.js"></script>
+<script src="cordova.js"></script>
+<script>
+    // get location querys
+    function getQuerys(){
+        var querys = {};
+        var search;
+        if(location.search){
+            search = location.search.substring(1).split('&');
+        }else if(location.hash){
+            var idx = location.hash.indexOf("?");
+            search = location.hash.substring(idx+1).split('&');
+        }
+        search.forEach(function(el){
+            if(el.length){
+            var kv = el.split('=');
+            querys[kv[0]] = kv[1];
+            }
+        })
+        return querys;
+    }
+</script>
+<style>
+    /*
+     * 移动设备选
+     * 1:iphone 6/7/8 Plus横屏 736*414
+     * 2:iphone 6/7/8 竖屏 375*667
+    */
+    #area{position:absolute;top:0;}
+</style>
+</head> 
+<body class="page-swipe">
+<svg class="icon goBack">
+    <use xlink:href="#system-back"></use>
+</svg>
+<div id="mark" class="hide">
+    <svg class="icon clear">
+        <use xlink:href="#close-round"></use>
+    </svg>
+    <svg class="icon check">
+        <use xlink:href="#checkmark-round"></use>
+    </svg>
+</div>
+<!-- <svg class="icon nextBk">
+    <use xlink:href="#chevron-right"></use>
+</svg> -->
+<div id="slider" class="swipe" style="visibility:visible;">
+    <div class="swipe-wrap"></div>
+    <canvas id="area"></canvas>
+</div>
+<nav>
+<ul id="position">      
+    <svg class="icon prev">
+        <use xlink:href="#skip-backward"></use>
+    </svg>
+    <svg class="icon hide" name="play">
+        <use xlink:href="#play"></use>
+    </svg>
+    <svg class="icon" name="play">
+        <use xlink:href="#pause"></use>
+    </svg>
+    <svg class="icon next">
+        <use xlink:href="#skip-forward"></use>
+    </svg>
+</ul>
+<div class="w3-progress-container">
+    <div class="w3-progressbar w3-blue" style="width:75%"></div>
+</div>
+<span id="tags">00:00/00:00</span>
+</nav>
+<div id="audioList" class="w3-modal">
+    <div class="w3-modal-content">
+        <div class="w3-container">
+        <span class="w3-closebtn" onclick="goList()">&times;</span>
+        <p>
+            <button class="w3-btn w3-blue" w3-repeat="audios" data-id="{{id}}" onclick="begin()">{{title}}</button>
+        </p>
+        </div>
+    </div>
+</div>
+<script src="assets/soundBuffer.js"></script>
+<script src="assets/rectDraw.js"></script>
+<script src="assets/swipe.js"></script>
+<script src="assets/common.js"></script>
+<script>
+    const BASEURL="data/";
+    //const BASEURL="https://share-1252923336.cos.ap-guangzhou.myqcloud.com/";
+    var offLen=0.6, // 音频打点提前时长，默认纠偏值
+  area={},//点读区域坐标
+  canDraw = true; // 允许点读区域绘制
+  //不绘制点读区域时，听到翻页音频前，按下btnNext翻页按钮自动记录翻页时间
+  //绘制点读区域时，听到点读音频前，按下btnPause按钮暂停音频，显示画板后按下btnNext按钮翻页，
+  // 绘制矩形后，按勾记录点读区域和时间
+
+(btnPrev||document.querySelector("svg.prev")).addEventListener('click',function(){
+  if(slider)
+  slider.prev();
+},false);
+(btnNext||document.querySelector("svg.next")).addEventListener('click',function(){
+  if(slider)
+  slider.next();
+},false);
+// play
+(btnPlay||document.getElementsByName('play')[0]).addEventListener('click',playAudio,false);
+function playAudio(){
+  btnPlay.classList.add('hide');
+  btnPause.classList.remove('hide');
+  if(slider)
+  slider.resume();
+  delta += audioCtx.currentTime - offset;
+  startAudio();
+  if(canDraw)
+  canvasRemoveEvents();
+}
+// pause
+(btnPause||document.getElementsByName('play')[1]).addEventListener('click',pauseAudio,false);
+function pauseAudio(){
+  btnPause.classList.add('hide');
+  btnPlay.classList.remove('hide');
+  if(slider)
+  slider.stop();
+  stopAudio();
+  if(canDraw)
+  canvasSetupEvents();
+}
+document.querySelector("svg.check").addEventListener('click',function(){
+  playAudio();
+  if(area.x){
+      area.time = Number((getCurrentTime()-offLen).toFixed(3));
+      var idx = slider.getPos();
+      objData.pages[idx].areas.push(area);
+      if(objData.audios[source.id].time[idx]===undefined){
+          objData.audios[source.id].time.push(area.time)
+      }
+      // console.log(objData)
+  }
+},false);
+document.querySelector("svg.clear").addEventListener('click',function(){
+  if(canvas&&context){
+      context.clearRect(1, 1, canvas.width-2, canvas.height-2);
+  }
+},false);
+if(querys.series){
+w3.getHttpObject(BASEURL+querys.series+"/"+querys.name+".json",function(obj){
+  console.log(obj);
+  objData = obj;
+  w3.displayObject("audioList", {"audios":obj.audios.map(function(el,idx){el.id=idx;return el})});
+  obj.pages.forEach(function(el,idx){
+      var swipe = document.querySelector(".swipe-wrap");
+      var fg = document.createElement('figure');
+      if(idx!=0){
+          fg.classList.add('hide')
+      }
+      if(typeof el.pic == "string"){
+          var fc = document.createElement('div');
+          fc.classList.add('face');
+          fc.style.width = objData.width/objData.picNum + "px";
+          fc.innerHTML="<img src=\""+obj.baseDir+el.pic+"\" />"
+          fg.appendChild(fc);
+      }else{
+          var fc = document.createElement('div');
+          fc.classList.add('face');
+          fc.classList.add('faceInner');
+          fc.style.width = objData.width/objData.picNum + "px";
+          fc.innerHTML="<img src=\""+obj.baseDir+el.pic[0]+"\" />"
+          fg.appendChild(fc);
+          fc = document.createElement('div');
+          fc.classList.add('face');
+          fc.classList.add('faceInner');
+          fc.style.width = objData.width/objData.picNum + "px";
+          fc.innerHTML="<img src=\""+obj.baseDir+el.pic[1]+"\" />"
+          fg.appendChild(fc);
+      }
+      swipe.append(fg);
+  })
+  try{
+    setAlinks();
+  }catch(e){}
+  // load and store all audio
+  obj.audios.forEach(function(el,idx){
+      soundBuffer
+      .getBuffer(obj.baseDir+el.url)
+      .then(buf => {
+          soundSources.push({
+              id: idx,
+              buffer: buf,
+              time: el.time
+          })
+      })
+      .catch(e => {
+          console.log(e);
+      });
+  })
+  if (window.orientation == 0 || window.orientation == 180){
+    // 0/180:portrait,90/-90:landscape
+    document.querySelector('.tips').innerText="温馨提示：手机端请横屏操作，支持最小宽度"+objData.width;
+  }
+  document.getElementById("audioList").style.display="block";
+});
+}else{
+  alert("缺少参数!")
+}
+function begin(){
+  var idx = event.target.dataset["id"];
+  source = soundSources.find(function(el){
+      return el.id == idx
+  });
+  if(source){
+      document.querySelectorAll('figure').forEach(function(el){
+          el.classList.remove('hide')
+      });
+      document.getElementById("audioList").style.display="none";
+      duration = source.buffer.duration;
+      timeTags.innerText="00:00/"+formatSecs(duration);
+      startAudio();
+      // init slider
+      slider = new Swipe(document.getElementById('slider'), {
+          // auto: 3000,  
+          continuous: false,
+          callback: function(pos) {
+              //在听到音频时,翻页时自动记录时间，保存自动翻页时间audio.time
+              if(!canDraw){
+                  objData.audios[source.id].time.push(Number(getCurrentTime().toFixed(3)));
+                  console.log(getCurrentTime());
+              }
+              
+          }
+      });
+      // init canvas dimension and position
+      var fg = document.querySelector("figure");
+      var offsetLeft = (fg.offsetWidth-objData.width)/2;
+      document.querySelectorAll(".faceInner:first-child").forEach(function(el){
+          el.style.marginLeft = offsetLeft+"px";
+      })
+      canvas.width = objData.width;
+      canvas.height = document.querySelector(".face img").offsetHeight;
+      canvas.style.left = offsetLeft + "px";
+      current.offsetX = offsetLeft;
+  }else{
+      alert('音频加载失败!')
+  }
+}
+function startAudio(time){
+  if(sound){
+      sound = null;
+  }
+  sound = soundBuffer.createSound(source.buffer);
+  time&&time<duration?sound.start(audioCtx.currentTime,time):sound.start(audioCtx.currentTime,getCurrentTime());
+  sound.onended = function(){
+      if(playInterval){
+          clearInterval(playInterval)
+      }
+      objData.audios[source.id].time.push(Number(duration.toFixed(3)));
+      objData.marked = true;
+      var str = JSON.stringify(objData);
+      console.log(str);
+      if(BASEURL=="data/"){
+        var blob = new Blob([str], {type: "application/json"});
+        var url = (window.URL || window.webkitURL).createObjectURL(blob);
+        var link = window.document.createElement('a');
+        link.href = url;
+        link.download = decodeURI(querys.name)+".json";
+        var cr = confirm("是否下载数据文件？")
+        if(cr){
+            link.click();
+        }
+      }else{
+          // upload to cos
+      }
+  }
+  if(playInterval){
+      clearInterval(playInterval)
+  }
+  playInterval = setInterval(function(){
+      var currentTime = getCurrentTime();
+      var percent = 100*currentTime/duration;
+      percent = percent>100?100:percent;
+      document.querySelector('.w3-progressbar').style.width=percent+"%";
+      timeTags.innerText = formatSecs(currentTime)+"/"+formatSecs(duration)
+  },1000);
+}
+</script>
+<svg class="hide">
+    <style>
+      .ionicon {
+        fill: currentColor;
+        stroke: currentColor;
+      }
+      .ionicon-fill-none {
+        fill: none;
+      }
+      .ionicon-stroke-width {
+        stroke-width: 32px;
+      }
+      </style>
+    <defs>
+        <symbol id="play" class="ionicon" viewBox="0 0 512 512">
+            <path d="M405.2,232.9L126.8,67.2c-3.4-2-6.9-3.2-10.9-3.2c-10.9,0-19.8,9-19.8,20H96v344h0.1c0,11,8.9,20,19.8,20
+	c4.1,0,7.5-1.4,11.2-3.4l278.1-165.5c6.6-5.5,10.8-13.8,10.8-23.1C416,246.7,411.8,238.5,405.2,232.9z"/>
+        </symbol>
+        <symbol id="pause" class="ionicon" viewBox="0 0 512 512">
+            <g>
+                <path d="M224,435.8V76.1c0-6.7-5.4-12.1-12.2-12.1h-71.6c-6.8,0-12.2,5.4-12.2,12.1v359.7c0,6.7,5.4,12.2,12.2,12.2h71.6
+                    C218.6,448,224,442.6,224,435.8z"/>
+                <path d="M371.8,64h-71.6c-6.7,0-12.2,5.4-12.2,12.1v359.7c0,6.7,5.4,12.2,12.2,12.2h71.6c6.7,0,12.2-5.4,12.2-12.2V76.1
+                    C384,69.4,378.6,64,371.8,64z"/>
+            </g>
+        </symbol>
+        <symbol id="skip-backward" class="ionicon" viewBox="0 0 512 512">
+            <path class="st0" d="M75.7,96h8.1c6.7,0,12.2,5,12.2,11.7v113.5L283.1,98.7c2.5-1.7,5.1-2.3,8.1-2.3c8.3,0,15.4,7,15.4,17v63.1
+	l118.5-78.2c2.5-1.7,5-2.3,8.1-2.3c8.3,0,14.9,7.4,14.9,17.4v286c0,10-6.7,16.5-15,16.5c-3.1,0-5.4-1.2-8.2-2.9l-118.3-77.6v64
+	c0,10-7.2,16.5-15.5,16.5c-3.1,0-5.5-1.2-8.2-2.9L96,290.8v113c0,6.7-5.4,12.2-12.2,12.2h-8.1c-6.7,0-11.7-5.5-11.7-12.2V107.7
+	C64,101,68.9,96,75.7,96z"/>
+        </symbol>
+        <symbol id="skip-forward" class="ionicon" viewBox="0 0 512 512">
+            <path class="st0" d="M436.3,96h-8.1c-6.7,0-12.2,5-12.2,11.7v113.5L228.9,98.7c-2.5-1.7-5.1-2.3-8.1-2.3c-8.3,0-15.4,7-15.4,17v63.1
+	L86.9,98.3c-2.5-1.7-5.1-2.3-8.1-2.3c-8.3,0-14.9,7.4-14.9,17.4v286c0,10,6.7,16.5,15,16.5c3.1,0,5.4-1.2,8.2-2.9l118.3-77.6v64
+	c0,10,7.2,16.5,15.5,16.5c3.1,0,5.5-1.2,8.2-2.9L416,290.8v113c0,6.7,5.4,12.2,12.2,12.2h8.1c6.7,0,11.7-5.5,11.7-12.2V107.7
+	C448,101,443.1,96,436.3,96z"/>
+        </symbol>
+        <symbol id="skipbackward-outline" class="ionicon" viewBox="0 0 512 512">
+            <path d="M96,96v320h79V274.2L416,416V96L175,237.8V96H96z M175.6,256l7.6-4.4L400,124v0v264L183.1,260.4L175.6,256z M112,112h47
+	v125.8v28v8.5V400h-47V112z"/>
+        </symbol>
+        <symbol id="skipforward-outline" class="ionicon" viewBox="0 0 512 512">
+            <path d="M337,96v141.8L96,96v320l241-141.8V416h79V96H337z M328.9,260.4L112,388V124v0l216.9,127.6l7.6,4.4L328.9,260.4z M400,400
+	h-47V274.2v-8.5v-28V112h47V400z"/>
+        </symbol>
+        <symbol id="system-back" class="ionicon" viewBox="0 0 512 512">
+            <path class="st0" d="M416,192H55l66.7-80H80L0,208l80,96h41.7L55,224h360.5h0.5c35.3,0,64,28.7,64,64s-28.7,64-64,64H224v32h192
+	c53,0,96-43,96-96S469,192,416,192z"/>
+        </symbol>
+        <symbol id="log-out" class="ionicon" viewBox="0 0 512 512">
+            <g>
+                <path d="M384,160l64,64l-64,64v-48H232c-4.4,0-8-3.6-8-8v-16c0-4.4,3.6-8,8-8h152V160z"/>
+                <path d="M352,176V72c0-4.4-3.6-8-8-8H72c-4.4,0-8,3.6-8,8v302c0,8.5,0,10,9.2,14.6L192,448v-64h152c4.4,0,8-3.6,8-8V272h-32v80H192
+                    V128l-48-32h176v80H352z"/>
+            </g>
+        </symbol>
+        <symbol id="chevron-right" class="ionicon" viewBox="0 0 512 512">
+            <path d="M298.3,256L298.3,256L298.3,256L131.1,81.9c-4.2-4.3-4.1-11.4,0.2-15.8l29.9-30.6c4.3-4.4,11.3-4.5,15.5-0.2l204.2,212.7
+	c2.2,2.2,3.2,5.2,3,8.1c0.1,3-0.9,5.9-3,8.1L176.7,476.8c-4.2,4.3-11.2,4.2-15.5-0.2L131.3,446c-4.3-4.4-4.4-11.5-0.2-15.8
+	L298.3,256z"/>
+        </symbol>
+        <symbol id="checkmark-round" class="ionicon" viewBox="0 0 512 512">
+            <path d="M448,71.9c-17.3-13.4-41.5-9.3-54.1,9.1L214,344.2l-99.1-107.3c-14.6-16.6-39.1-17.4-54.7-1.8
+	c-15.6,15.5-16.4,41.6-1.7,58.1c0,0,120.4,133.6,137.7,147c17.3,13.4,41.5,9.3,54.1-9.1l206.3-301.7
+	C469.2,110.9,465.3,85.2,448,71.9z"/>
+        </symbol>
+        <symbol id="close-round" class="ionicon" viewBox="0 0 512 512">
+            <path d="M437.5,386.6L306.9,256l130.6-130.6c14.1-14.1,14.1-36.8,0-50.9c-14.1-14.1-36.8-14.1-50.9,0L256,205.1L125.4,74.5
+	c-14.1-14.1-36.8-14.1-50.9,0c-14.1,14.1-14.1,36.8,0,50.9L205.1,256L74.5,386.6c-14.1,14.1-14.1,36.8,0,50.9
+	c14.1,14.1,36.8,14.1,50.9,0L256,306.9l130.6,130.6c14.1,14.1,36.8,14.1,50.9,0C451.5,423.4,451.5,400.6,437.5,386.6z"/>
+        </symbol>
+        <symbol id="picture-book" class="ionicon" viewBox="0 0 1000 1000">
+            <g><g transform="translate(0.000000,511.000000) scale(0.100000,-0.100000)"><path d="M3223.4,4988.2c-237.7-27.4-480.1-82.3-708.7-162.3c-624.1-221.7-1015-562.4-1232.2-1074.5l-59.4-144V-130.3V-3868l84.6-173.7c189.7-386.4,566.9-596.7,1261.9-699.6c221.8-32,599-38.9,3033.6-45.7c2082.6-6.9,2807.3-2.3,2880.4,16c208,57.2,338.4,288,274.3,484.6c-34.3,100.6-155.5,219.5-256,246.9c-48,16-1213.9,32-3095.4,48c-2958.2,22.9-3019.9,25.2-3154.8,70.9c-265.2,91.4-413.8,246.9-406.9,422.9c6.9,180.6,141.7,324.6,393.2,418.4c112,43.4,230.9,45.7,3106.8,70.8c1643.7,13.7,2992.5,34.3,2999.3,41.2c6.9,9.2,59.4,43.4,118.9,77.7c57.1,34.3,137.2,105.1,176,157.7c148.6,201.2,141.7-16,134.9,3778.9l-6.9,3452l-64,130.3c-68.6,139.4-178.3,244.6-313.2,304c-43.4,20.6-98.3,45.7-118.9,57.1C8220.8,5018,3465.8,5015.7,3223.4,4988.2z M6949.7,2247.3v-1143h-1806h-1806v1143v1143h1806h1806V2247.3z"/><path d="M3566.3,2217.5v-884.7h1474.5c811.6,0,1474.5,4.6,1474.5,9.1c0,25.1-939.6,836.7-969.3,836.7c-18.3,0-171.5-50.3-340.6-112c-169.2-61.7-324.6-116.6-342.9-121.2c-18.3-4.6-294.9,235.5-615,530.4c-317.8,294.9-603.5,557.8-630.9,580.7l-50.3,43.4V2217.5z"/><path d="M6167.9,3058.8c-182.9-102.9-169.2-381.8,20.6-461.8c148.6-61.7,288,2.3,349.8,162.3C6613.7,2958.2,6357.6,3166.3,6167.9,3058.8z"/></g></g>
+        </symbol>
+    </defs>
+</svg>
+</body>  
+</html>

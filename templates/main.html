@@ -1,0 +1,15 @@
+<style>
+  body{padding:10px;}
+  table{width:90%;min-width:360px;margin:10px auto;border-collapse: collapse;}
+  .tborder th{border:1px solid #ccc;padding:5px;}
+  .tborder td{border:1px solid #ccc;padding: 5px;text-align: center;line-height: 30px;}
+  td a{width:100%;display: inline-block;text-decoration: none;}
+</style>
+<div id="main">
+  <table class="tborder" w3-repeat="series">
+    <tbody>
+      <tr><th colspan="{{ll}}">{{title}}</th></tr>
+      <tr id="{{name}}"></tr>
+    </tbody>
+  </table>
+</div>

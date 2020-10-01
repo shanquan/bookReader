@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title></title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="app-mobile-web-app-capable" content="yes">
+    <meta name="refdoc" content="https://www.cnblogs.com/mywaystrech/p/5011093.html">
+    <script src="/zepto.min.js"></script>
+    <script src="/swipe.js"></script>
+    <style>
+        .swipe {
+            overflow: hidden;
+            visibility: hidden;
+            position: relative;
+        }
+        .swipe-wrap {
+            overflow: hidden;
+            position: relative;
+        }
+        .wrap-slide {
+            float:left;
+            width:100%;
+            position: relative;
+            display: -webkit-box;  /*移动端图片居中显示*/
+            -webkit-box-orient: horizontal;
+            -webkit-box-pack: center;
+            overflow: hidden;  /*图片过大时，溢出div宽的隐藏，以免影响其他图片的滑动*/
+        }
+        .slide-img {
+            height: 300px; /*固定图片高*/
+        }
+        .loading {
+            position: absolute;
+            top: 120px;
+            left: 150px;
+        }
+        .mod-load{
+            text-align: center;
+            padding: 15px 0;
+            font-size: 12px;
+        }
+        @-webkit-keyframes loading{
+            0%{-webkit-transform: rotate(0deg);}
+            50%{-webkit-transform: rotate(180deg);}
+            100%{-webkit-transform: rotate(360deg);}
+        }
+        .icon-loading{
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            vertical-align: -4px;
+            margin-right: 6px;
+            transform-style: preserve-3d;
+            -webkit-backface-visibility: hidden;
+            -webkit-animation-name: loading;
+            -webkit-animation-duration: 1.2s;
+            -webkit-animation-timing-function: linear;
+            -webkit-animation-iteration-count: infinite;
+            -moz-animation-name: loading;
+            -moz-animation-duration: 1.2s;
+            -moz-animation-timing-function: linear;
+            -moz-animation-iteration-count: infinite;
+        }
+        .detail {
+            display: -webkit-box;
+            -webkit-box-orient: horizontal;
+            -webkit-box-pack: justify;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        .info {
+            -webkit-box-flex: 1;
+        }
+        .title {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            word-break: break-all;
+            overflow: hidden;
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+        }
+        .desc {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            word-break: break-all;
+            overflow: hidden;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+        }
+        .num {
+            border-left: 1px solid #000;
+            padding-left: 5px;
+            max-width: 18%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id='slider' class='swipe'>
+    <div class='swipe-wrap'>
+        <div class="wrap-slide">
+            <img class='slide-img' data-src="http://tgi1.jia.com/115/551/15551390.jpg"></img>
+        </div>
+        <div class="wrap-slide">
+            <img class='slide-img' data-src="http://tgi1.jia.com/115/551/15551440.jpg"></img>
+        </div>
+        <div class="wrap-slide">
+            <img class='slide-img' data-src="http://tgi13.jia.com/115/551/15551388.jpg"></img>
+        </div>
+    </div>
+</div>
+<div class='detail'>
+    <div class='info'>
+        <div class='title'></div>
+        <div class='desc'></div>
+    </div>
+    <div class='num'></div>
+</div>
+<script>
+    var $img=$('.slide-img');
+    var $slide=$('.wrap-slide');
+    var $detail=$('.detail');
+    var $title=$('.title');
+    var $desc=$('.desc');
+    var $num=$('.num');
+    var windowHeight = $(window).height();
+    var pos=0;
+    var imgSrc=$img[pos];
+    var src;
+    var imgLoad;
+    var imgHeight;
+    var posHeight;
+    var detailHeight;
+
+    loading();
+    lazyLoad(pos);
+
+    var mySwipe = Swipe(document.getElementById('slider'), {
+        auto:3000,
+        startSlide: 0,
+        speed: 400,
+        continuous: true,
+        disableScroll: false,
+        stopPropagation: false,
+        callback: function(index, elem) {
+            pos = index;
+            imgSrc = $img[pos];
+            if (imgSrc.hasAttribute('data-src')) {
+                loading();
+                lazyLoad(pos);
+            }else {
+                description(pos)
+            }
+        },
+        transitionEnd: function(index, elem) {}
+    });
+
+    //加载中...
+    function loading(){
+        var loadingHtml = '<div class="loading">'
+                +   '<div class="mod-load list-loading">'
+                +   '<img class="icon-loading" src="/loading.png">'
+                +   '加载中...'
+                + '</div></div>';
+        $(loadingHtml).appendTo($slide);
+    }
+
+    //图片延迟加载
+    function lazyLoad(pos){
+        src = $(imgSrc).attr('data-src');
+        $(imgSrc).attr('src',src).removeAttr('data-src');
+        imgLoad =document.querySelectorAll(".slide-img")[pos];
+        imgLoad.addEventListener("load",function(event){
+            $('.loading').remove();
+            description(pos);
+        });
+    }
+
+    //图片描述
+    function description(pos){
+        $title.html('title:'+pos);
+        $desc.html('content:'+pos);
+        $num.html(pos);
+        imgHeight= $img[pos].height;
+        detailHeight = $detail.height();
+        posHeight =imgHeight;
+        if(posHeight + detailHeight > windowHeight) {
+            $detail.css({
+                'top':windowHeight - detailHeight + 'px',
+            });
+        }else {
+            $detail.css({
+                'top':posHeight+'px',
+            });
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,441 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />  
+<title>book</title>  
+<meta name="description" content="english book">
+<meta name="keywords" content="album,book">  
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0">  
+<meta name="app-mobile-web-app-capable" content="yes"> 
+<meta name="refdoc" content="https://blog.csdn.net/qq_29132907/article/details/74529497">
+<link rel="stylesheet" type="text/css" href="assets/common.css"/>
+<script type="application/javascript" src="assets/w3.js"></script>
+<script src="cordova.js"></script>
+<script>
+      // get location querys
+function getQuerys(){
+    var querys = {};
+    var search;
+    if(location.search){
+        search = location.search.substring(1).split('&');
+    }else if(location.hash){
+        var idx = location.hash.indexOf("?");
+        search = location.hash.substring(idx+1).split('&');
+    }
+    search.forEach(function(el){
+        if(el.length){
+        var kv = el.split('=');
+        querys[kv[0]] = kv[1];
+        }
+    })
+    return querys;
+}
+</script>
+</head> 
+<body class="page-swipe">
+<svg class="icon goBack">
+    <use xlink:href="#system-back"></use>
+</svg>
+<!-- <svg class="icon nextBk">
+    <use xlink:href="#chevron-right"></use>
+</svg> -->
+<button id="mode" class="w3-btn w3-white w3-border w3-border-blue w3-round-xlarge w3-tiny hide">自动</button>
+<div id="slider" class="swipe" style="visibility:visible;">
+    <div class="swipe-wrap"></div>
+    <div class="mcontainer hide"><div class="mbox"></div></div>
+</div>
+<nav class="hide">
+<ul id="position">      
+    <svg class="icon prev">
+        <use xlink:href="#skip-backward"></use>
+    </svg>
+    <svg class="icon hide" name="play">
+        <use xlink:href="#play"></use>
+    </svg>
+    <svg class="icon" name="play">
+        <use xlink:href="#pause"></use>
+    </svg>
+    <svg class="icon next">
+        <use xlink:href="#skip-forward"></use>
+    </svg>
+</ul>
+<div class="w3-progress-container">
+    <div class="w3-progressbar w3-blue" style="width:75%"></div>
+</div>
+<span id="tags">00:00/00:00</span>
+</nav>
+<div id="audioList" class="w3-modal">
+    <div class="w3-modal-content">
+        <div class="w3-container">
+        <span class="w3-closebtn" onclick="goList()">&times;</span>
+        <p>
+            <button class="w3-btn w3-blue" w3-repeat="audios" data-id="{{id}}" onclick="begin()">{{title}}</button>
+        </p>
+        </div>
+    </div>
+</div>
+<script src="assets/soundBuffer.js"></script>
+<script src="assets/swipe.js"></script>
+<script src="assets/common.js"></script>
+<script>
+    const BASEURL="data/";
+    //const BASEURL="https://share-1252923336.cos.ap-guangzhou.myqcloud.com/";
+    var mode=0, // 0: 自动 1: 点读
+  imgWidth = 90, // 默认图片宽度百分比
+  imgLeft = 5, // 默认图片左移百分比
+  hideTimer, // 控件自动隐藏定时器
+  hideSec = 3000,
+  stopTimer, // 点读结束定时器
+  ratio; // 图片显示比
+
+(btnPrev||document.querySelector("svg.prev")).addEventListener('click',function(){
+  if(slider)
+  slider.prev();
+},false);
+(btnNext||document.querySelector("svg.next")).addEventListener('click',function(){
+  if(slider)
+  slider.next();
+},false);
+// play
+(btnPlay||document.getElementsByName('play')[0]).addEventListener('click',playAudio,false);
+function playAudio(){
+  if(mode===1||!slider) return;
+  btnPlay.classList.add('hide');
+  btnPause.classList.remove('hide');
+  if(slider)
+  slider.resume();
+  delta += audioCtx.currentTime - offset;
+  startAudio();
+  if(hideTimer){
+    clearTimeout(hideTimer); 
+  }
+  hideTimer = setTimeout(hideControls,hideSec);
+}
+// pause
+(btnPause||document.getElementsByName('play')[1]).addEventListener('click',pauseAudio,false);
+function pauseAudio(){
+  if(mode===1||!slider) return;
+  btnPause.classList.add('hide');
+  btnPlay.classList.remove('hide');
+  if(slider)
+  slider.stop();
+  stopAudio();
+  if(hideTimer){
+      clearTimeout(hideTimer);
+  }
+}
+document.getElementById('mode').addEventListener('click',function(){
+  if(!slider){return}
+  if(mode === 1){
+      mode = 0;
+      this.innerText = "自动";
+      document.querySelector(".mcontainer").classList.add('hide');
+      // 从当前页开始自动播放；
+      if(stopTimer){
+          clearTimeout(stopTimer);
+      }
+      if(objData.marked){
+          playAtPos(source.time[slider.getPos()]);
+      }else{
+          playAudio();
+      }
+      document.querySelector("nav").classList.add('hide');
+      document.querySelector("svg.goBack").classList.add('hide');
+      document.getElementById('mode').classList.add('hide');
+      document.getElementById('slider').addEventListener('click',showControls,false);
+  }else{
+      mode = 1;
+      this.innerText = "点读";
+      if(hideTimer){
+        clearTimeout(hideTimer);
+      }
+      document.querySelector("nav").classList.remove('hide');
+      document.querySelector("svg.goBack").classList.remove('hide');
+      document.getElementById('mode').classList.remove('hide');
+      document.getElementById('slider').removeEventListener('click',showControls,false);
+      // 停止自动播放；
+      document.querySelector(".mcontainer").classList.remove('hide');
+      document.getElementById('tags').innerText = "00:00/00:00";
+      document.querySelector(".w3-progressbar").style.width = "0";
+      btnPause.classList.remove('hide');
+      btnPlay.classList.add('hide');
+      stopAudio();
+      showTags(slider.getPos());
+  }
+},false)
+// Load book Data
+if(querys.series){
+w3.getHttpObject(BASEURL+querys.series+"/"+querys.name+".json",function(obj){
+  console.log(obj);
+  objData = obj;
+  w3.displayObject("audioList", {"audios":obj.audios.map(function(el,idx){el.id=idx;return el})});
+  var swipe = document.querySelector(".swipe-wrap");
+  var srWidth = screen.width;
+  var srHeight = screen.height;
+  var imgHeight = objData.height*0.9*(srWidth)/(objData.width*objData.picNum);
+  imgWidth = 90/objData.picNum;
+  if(imgHeight>srHeight){
+    imgWidth = (100*srHeight*objData.width)/(objData.height*srWidth);
+  }
+  imgLeft = (99-imgWidth*objData.picNum)/2;
+  obj.pages.forEach(function(el,idx){
+      var fg = document.createElement('figure');
+      if(idx!=0){
+          fg.classList.add('hide')
+      }
+      if(typeof el.pic == "string"){
+          var fc = document.createElement('div');
+          fc.classList.add('face');
+          fc.style.width = imgWidth + "%";
+          fc.innerHTML="<img src=\""+obj.baseDir+el.pic+"\" />"
+          fg.appendChild(fc);
+      }else{
+          var fc = document.createElement('div');
+          fc.classList.add('face');
+          fc.classList.add('faceInner');
+          fc.style.width = imgWidth + "%";
+          fc.style.marginLeft = imgLeft + "%"
+          fc.innerHTML="<img src=\""+obj.baseDir+el.pic[0]+"\" />"
+          fg.appendChild(fc);
+          fc = document.createElement('div');
+          fc.classList.add('face');
+          fc.classList.add('faceInner');
+          fc.style.width = imgWidth + "%";
+          fc.innerHTML="<img src=\""+obj.baseDir+el.pic[1]+"\" />"
+          fg.appendChild(fc);
+      }
+      swipe.append(fg);
+  })
+  try{
+    setAlinks();
+  }catch(e){}
+  // load and store all audio
+  obj.audios.forEach(function(el,idx){
+      soundBuffer
+      .getBuffer(obj.baseDir+el.url)
+      .then(buf => {
+          soundSources.push({
+              id: idx,
+              buffer: buf,
+              time: el.time
+          })
+      })
+      .catch(e => {
+          console.log(e);
+      });
+  })
+  document.getElementById("audioList").style.display="block";
+})
+}else{
+  alert("缺少参数!")
+}
+
+// 初始化点读区域
+function initTagsContainer(){
+  var img = document.querySelector('.face img');
+  var mcontainer =  document.querySelector('.mcontainer');
+  ratio = objData.picNum*img.offsetWidth/objData.width;
+  mcontainer.style.width = objData.picNum*img.offsetWidth+"px";
+  mcontainer.style.height = img.offsetHeight+"px";
+  mcontainer.style.left = imgLeft+"%";
+  mcontainer.classList.add('hide');
+}
+// 点读
+function showTags(pos){
+  var tags = objData.pages[pos].areas;
+  var mbox = document.querySelector('.mbox');
+  mbox.innerHTML = "";
+  tags.forEach(function(el,idx){
+      var dv = document.createElement("div");
+      dv.classList.add('mtag');
+      dv.style.left = el.x*ratio+"px";
+      dv.style.top = el.y*ratio+"px";
+      dv.style.width = el.w*ratio+"px";
+      dv.style.height = el.h*ratio+"px";
+      dv.onclick = function(){
+          dv.classList.add('border1');
+          playAtPos(el.time);
+          try{
+              var nextTime=el.time;
+              if(idx<tags.length-1){
+                  nextTime = tags[idx+1].time;
+              }else{
+                  nextTime = source.time[pos+1];
+              }
+              if(stopTimer){
+                  clearTimeout(stopTimer);
+              }
+              stopTimer = setTimeout(function(){
+                  stopAudio();
+              },(nextTime-el.time)*1000);
+          }catch(e){
+              console.log(e);
+          }
+      }
+      mbox.append(dv);
+  })
+}
+function begin(){
+  var idx = event.target.dataset["id"];
+  source = soundSources.find(function(el){
+      return el.id == idx
+  });
+  if(source){
+      document.querySelectorAll('figure').forEach(function(el){
+          el.classList.remove('hide')
+      });
+      document.getElementById("audioList").style.display="none";
+      duration = source.buffer.duration;
+      timeTags.innerText="00:00/"+formatSecs(duration);
+      startAudio();
+      // init slider
+      slider = new Swipe(document.getElementById('slider'), {
+          // auto: 3000,  
+          continuous: false,
+          callback: function(pos) {
+              if(mode===1){
+                  showTags(pos);
+              }else{
+                  document.querySelector('.mbox').innerHTML = "";
+                  if(autoSlide===true){
+                      autoSlide = false;
+                  }else if(objData.marked){
+                      btnPlay.classList.add('hide');
+                      btnPause.classList.remove('hide');
+                      playAtPos(source.time[slider.getPos()]);
+                  }
+                  if(hideTimer){
+                      clearTimeout(hideTimer); 
+                  }
+                  hideTimer = setTimeout(hideControls,hideSec);
+              }
+          }
+      });
+      document.getElementById('slider').addEventListener('click',showControls,false);
+      initTagsContainer();
+  }else{
+      alert('音频加载失败!')
+  }
+}
+function showControls(){
+    document.querySelector("nav").classList.remove('hide');
+    document.querySelector("svg.goBack").classList.remove('hide');
+    if(objData.marked){
+        document.getElementById('mode').classList.remove('hide');
+    }
+    if(hideTimer){
+        clearTimeout(hideTimer);
+    }
+    if(btnPlay.classList.contains('hide'))
+    hideTimer = setTimeout(hideControls,hideSec);
+}
+function hideControls(){
+    document.querySelector("nav").classList.add('hide');
+    document.querySelector("svg.goBack").classList.add('hide');
+    if(objData.marked){
+        document.getElementById('mode').classList.add('hide');
+    }
+}
+function startAudio(time){
+  if(sound){
+      sound = null;
+  }
+  sound = soundBuffer.createSound(source.buffer);
+  time&&time<duration?sound.start(audioCtx.currentTime,time):sound.start(audioCtx.currentTime,getCurrentTime());
+  sound.onended = function(){
+      if(playInterval){
+          clearInterval(playInterval)
+      }
+  }
+  if(playInterval){
+      clearInterval(playInterval)
+  }
+  if(mode===0)
+  playInterval = setInterval(function(){
+      var currentTime = getCurrentTime();
+      if(source.time.length>objData.pages.length){
+          var pos = 0;
+          for(var i=0;i<source.time.length;i++){
+              if(currentTime<=source.time[i]){
+                  pos = i-1;
+                  break;
+              }
+          }
+          if(slider.getPos()!=pos&&slider){
+              autoSlide = true;
+              slider.slide(pos);
+          }
+      }
+      var percent = 100*currentTime/duration;
+      percent = percent>100?100:percent;
+      document.querySelector('.w3-progressbar').style.width=percent+"%";
+      timeTags.innerText = formatSecs(currentTime)+"/"+formatSecs(duration)
+  },1000);
+}
+</script>
+<svg class="hide">
+    <style>
+      .ionicon {
+        fill: currentColor;
+        stroke: currentColor;
+      }
+      .ionicon-fill-none {
+        fill: none;
+      }
+      .ionicon-stroke-width {
+        stroke-width: 32px;
+      }
+      </style>
+    <defs>
+        <symbol id="play" class="ionicon" viewBox="0 0 512 512">
+            <path d="M405.2,232.9L126.8,67.2c-3.4-2-6.9-3.2-10.9-3.2c-10.9,0-19.8,9-19.8,20H96v344h0.1c0,11,8.9,20,19.8,20
+	c4.1,0,7.5-1.4,11.2-3.4l278.1-165.5c6.6-5.5,10.8-13.8,10.8-23.1C416,246.7,411.8,238.5,405.2,232.9z"/>
+        </symbol>
+        <symbol id="pause" class="ionicon" viewBox="0 0 512 512">
+            <g>
+                <path d="M224,435.8V76.1c0-6.7-5.4-12.1-12.2-12.1h-71.6c-6.8,0-12.2,5.4-12.2,12.1v359.7c0,6.7,5.4,12.2,12.2,12.2h71.6
+                    C218.6,448,224,442.6,224,435.8z"/>
+                <path d="M371.8,64h-71.6c-6.7,0-12.2,5.4-12.2,12.1v359.7c0,6.7,5.4,12.2,12.2,12.2h71.6c6.7,0,12.2-5.4,12.2-12.2V76.1
+                    C384,69.4,378.6,64,371.8,64z"/>
+            </g>
+        </symbol>
+        <symbol id="skip-backward" class="ionicon" viewBox="0 0 512 512">
+            <path class="st0" d="M75.7,96h8.1c6.7,0,12.2,5,12.2,11.7v113.5L283.1,98.7c2.5-1.7,5.1-2.3,8.1-2.3c8.3,0,15.4,7,15.4,17v63.1
+	l118.5-78.2c2.5-1.7,5-2.3,8.1-2.3c8.3,0,14.9,7.4,14.9,17.4v286c0,10-6.7,16.5-15,16.5c-3.1,0-5.4-1.2-8.2-2.9l-118.3-77.6v64
+	c0,10-7.2,16.5-15.5,16.5c-3.1,0-5.5-1.2-8.2-2.9L96,290.8v113c0,6.7-5.4,12.2-12.2,12.2h-8.1c-6.7,0-11.7-5.5-11.7-12.2V107.7
+	C64,101,68.9,96,75.7,96z"/>
+        </symbol>
+        <symbol id="skip-forward" class="ionicon" viewBox="0 0 512 512">
+            <path class="st0" d="M436.3,96h-8.1c-6.7,0-12.2,5-12.2,11.7v113.5L228.9,98.7c-2.5-1.7-5.1-2.3-8.1-2.3c-8.3,0-15.4,7-15.4,17v63.1
+	L86.9,98.3c-2.5-1.7-5.1-2.3-8.1-2.3c-8.3,0-14.9,7.4-14.9,17.4v286c0,10,6.7,16.5,15,16.5c3.1,0,5.4-1.2,8.2-2.9l118.3-77.6v64
+	c0,10,7.2,16.5,15.5,16.5c3.1,0,5.5-1.2,8.2-2.9L416,290.8v113c0,6.7,5.4,12.2,12.2,12.2h8.1c6.7,0,11.7-5.5,11.7-12.2V107.7
+	C448,101,443.1,96,436.3,96z"/>
+        </symbol>
+        <symbol id="skipbackward-outline" class="ionicon" viewBox="0 0 512 512">
+            <path d="M96,96v320h79V274.2L416,416V96L175,237.8V96H96z M175.6,256l7.6-4.4L400,124v0v264L183.1,260.4L175.6,256z M112,112h47
+	v125.8v28v8.5V400h-47V112z"/>
+        </symbol>
+        <symbol id="skipforward-outline" class="ionicon" viewBox="0 0 512 512">
+            <path d="M337,96v141.8L96,96v320l241-141.8V416h79V96H337z M328.9,260.4L112,388V124v0l216.9,127.6l7.6,4.4L328.9,260.4z M400,400
+	h-47V274.2v-8.5v-28V112h47V400z"/>
+        </symbol>
+        <symbol id="system-back" class="ionicon" viewBox="0 0 512 512">
+            <path class="st0" d="M416,192H55l66.7-80H80L0,208l80,96h41.7L55,224h360.5h0.5c35.3,0,64,28.7,64,64s-28.7,64-64,64H224v32h192
+	c53,0,96-43,96-96S469,192,416,192z"/>
+        </symbol>
+        <symbol id="log-out" class="ionicon" viewBox="0 0 512 512">
+            <g>
+                <path d="M384,160l64,64l-64,64v-48H232c-4.4,0-8-3.6-8-8v-16c0-4.4,3.6-8,8-8h152V160z"/>
+                <path d="M352,176V72c0-4.4-3.6-8-8-8H72c-4.4,0-8,3.6-8,8v302c0,8.5,0,10,9.2,14.6L192,448v-64h152c4.4,0,8-3.6,8-8V272h-32v80H192
+                    V128l-48-32h176v80H352z"/>
+            </g>
+        </symbol>
+        <symbol id="chevron-right" class="ionicon" viewBox="0 0 512 512">
+            <path d="M298.3,256L298.3,256L298.3,256L131.1,81.9c-4.2-4.3-4.1-11.4,0.2-15.8l29.9-30.6c4.3-4.4,11.3-4.5,15.5-0.2l204.2,212.7
+	c2.2,2.2,3.2,5.2,3,8.1c0.1,3-0.9,5.9-3,8.1L176.7,476.8c-4.2,4.3-11.2,4.2-15.5-0.2L131.3,446c-4.3-4.4-4.4-11.5-0.2-15.8
+	L298.3,256z"/>
+        </symbol>
+    </defs>
+</svg>
+</body>  
+</html>
