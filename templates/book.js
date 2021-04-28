@@ -16,6 +16,11 @@ btnNext.addEventListener('click',function(){
 },false);
 // play
 btnPlay.addEventListener('click',playAudio,false);
+// refresh
+document.querySelector("svg.refresh").addEventListener('click',function(){
+    //location.reload();
+    playAtPos(0);
+},false);
 function playAudio(){
   if(mode===1||!slider) return;
   btnPlay.classList.add('hide');
@@ -209,6 +214,11 @@ function begin(){
           // auto: 3000,  
           continuous: false,
           callback: function(pos) {
+              if(pos=="0"){
+                document.querySelector("svg.refresh").classList.remove('hide');
+              }else{
+                document.querySelector("svg.refresh").classList.add('hide');
+              }
               if(mode===1){
                   showTags(pos);
               }else{

@@ -1,5 +1,15 @@
+function filterLst(){
+  var qs = document.getElementsByName('search')[0].value;
+  if(qs){
+    w3.displayObject('list',{"books":books.filter(function(el){
+      return el.name.indexOf(qs)>-1
+    })});
+  }else{
+    w3.displayObject('list',{"books":books});
+  }
+}
+var books=[];
 (function(){
-  var books=[];
   var prefix=8; // name前面过滤的字符数
   var mode = 0; // 0: 阅读模式，1: 标记模式
   var querys = getQuerys();
@@ -10,13 +20,13 @@
     }
     w3.displayObject("title",{title:querys.series+" "+querys.name})
     w3.getHttpObject("data/"+querys.series+"/"+querys.name+".json",function(obj){
-      books = obj.books;
-      w3.displayObject('list',{"books":books.map(function(el,idx){
+      books = obj.books.map(function(el,idx){
         el.url = "/book?series="+querys.series+"&name="+el.name;
         el.title = el.name.substring(prefix);
         el.id = idx;
         return el
-      })});
+      });
+      w3.displayObject('list',{"books":books});
     setAlinks();
     })
   }else{

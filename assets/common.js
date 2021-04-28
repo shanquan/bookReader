@@ -66,7 +66,7 @@ function goList(){
 // 从指定时间重新开始播放
 function playAtPos(time){
   stopAudio();
-  if(time){
+  if(time || time==0){
     delta = audioCtx.currentTime - time;
     startAudio(time)
   }else{

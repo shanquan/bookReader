@@ -63,7 +63,8 @@ svg[name="play"]{width:40px;height:40px;}
 .nextBk{margin-right:10px;}
 svg.goBack{position:fixed;left:2px;top:2px;z-index:101}
 svg.nextBk{position:absolute;right:2px;top:2px;z-index:101}
-#tags{margin-top:20px}
+svg.refresh{position:absolute;right:2px;top:2px;z-index:101;margin-right:10px}
+#tags{margin-top:14px}
 #audioList p{text-align:center;margin-top:26px}
 #mark{position: fixed;z-index:101;
   right: 0;
@@ -112,8 +113,8 @@ button#mode{position: fixed;right:2px;z-index: 101;font-size:10px;}
 }
 .w3-progress-container {
   width: 100%;
-  height: 3px;
-  top:30px;
+  height: 20px;
+  top:15px;
   position: relative;
   background-color: #f1f1f1;
   flex:1;
