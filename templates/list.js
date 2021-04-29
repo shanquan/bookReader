@@ -1,12 +1,13 @@
 function filterLst(){
-  var qs = document.getElementsByName('search')[0].value;
+  var qs = document.getElementsByName('search')[0].value.toLowerCase();
   if(qs){
     w3.displayObject('list',{"books":books.filter(function(el){
-      return el.name.indexOf(qs)>-1
+      return el.name.toLowerCase().indexOf(qs)>-1
     })});
   }else{
     w3.displayObject('list',{"books":books});
   }
+  setAlinks();
 }
 var books=[];
 (function(){
