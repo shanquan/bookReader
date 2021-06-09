@@ -1,5 +1,6 @@
 /**
  * 因for in读取目录不支持文件名包含空格，所以开发nodejs版本脚本
+ * marked: 无时间数据设置为false,否则播放报错
  */
 const fs=require('fs');
 const path=require('path');
@@ -155,7 +156,7 @@ const generateJson=function(res){
       "width":CONFIG[SERIES].width,
       "height":CONFIG[SERIES].height,
       "picNum":CONFIG[SERIES].picNum,
-      "marked":true,
+      "marked":false,
       "pages":[],
       "audios":[]
     }

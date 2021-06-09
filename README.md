@@ -7,6 +7,7 @@
 - APP load html file should end-with '.html', or develop in SPA mode
 - resource urls should not start-with '/'
 - document.location.protocol+"//"+window.location.host is "file:///" on app, besides history.back() doesn't work, so links(window.location.href=) should use "file:///android_asset/www/*.html"
+- generate json: `node ./util/book.js`
 
 ## Step 1
 Goal: nothing, maybe in case the wechat pages may disappear one day
